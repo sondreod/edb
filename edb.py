@@ -17,22 +17,26 @@ import logging
 
 
 class Resource:
-    def __init__(self, resource) -> None:
+    def __init__(self, resource: str) -> None:
         self.resource = resource
 
-    def query(self, *args, **kwargs):
+    def query(self, *args, **kwargs) -> Union[dict, list, set]:
         return query(self.resource, *args, **kwargs)
 
-    def list(self):
+    def list(self) -> List[str]:
         return query(self.resource, "list_resource")
 
-    def create(self, type=None):
-        if not type:
+    def create(self, type=None) -> "Resource":
+        if type is None:
             type = dict()
-        return query(self.resource, "create_resource", type)
+        assert query(self.resource, "create_resource", type)
+        return self
 
-    def delete(self):
-        return query(self.resource, "delete_resource")
+    def delete(self) -> None:
+        assert query(self.resource, "delete_resource")
+
+    def length(self) -> None:
+        return query(self.resource, "length_resource")
 
     def __getattr__(self, name):
         """Lookup builtin dbfuncs"""
@@ -41,6 +45,29 @@ class Resource:
             return self.query(name, *args, **kwargs)
 
         return method
+
+    def __getitem__(self, subscript):
+        return query(self.resource, "db_slice", subscript)
+
+        """
+        if isinstance(subscript, slice):
+            return query(
+                self.resource, "slice", subscrip.start, stop=subscript.stop, step=subscript.step
+            )
+        else:
+            return query(self.resource, "slice", subscript)
+        """
+    def __len__(self):
+        return self.length()
+
+    def register():
+        # --TODO:
+        # Create functionality for registering class-definitions so
+        # customs classes can be unpickled server side.
+        # Probobaly a good idea to support storing the bytes unpickled
+        # in the database, if search functinality on the data it self
+        # (only keys e.g.) it's not important
+        pass
 
 
 def query(resource, func, *args, **kwargs):
@@ -82,25 +109,26 @@ class EdbServer(asyncio.Protocol):
             response = pickle.dumps(True)
         elif func == "list_resource":
             response = pickle.dumps(list(self.store.keys()))
+        elif func == "length_resource":
+            response = pickle.dumps(len(self.store.get(resource)))
         else:
             if isinstance(func, str):
                 func = self._get_builtin_dbfunc_from_string(func)
             fn = partial(func, *args, **kwargs)
             result = fn(self.store.get(resource))
-
             response = pickle.dumps(result)
 
         self.transport.write(response)
         self.transport.close()
 
-    def create_resource(self, name: str, o: Union[dict, list, tuple]):
-        # Fix resource handling
-        self.store[name] = 0
-
     @staticmethod
     def _get_builtin_dbfunc_from_string(func: str):
         """Get callable function from dbfuncs with function name (str)"""
-        return globals()[func]
+        
+
+        functions = globals()
+        #functions['__getitem__'] = list.__getitem__  # Might work
+        return functions[func]
 
 
 async def periodic(store):
@@ -115,19 +143,27 @@ async def periodic(store):
         await asyncio.sleep(10)
 
 
-# Dbfuncs
+# EDB standard database functions
 
 
 def add(elem, o):
+
     if isinstance(o, dict):
         key, value = elem
         o[key] = value
         return True
     if isinstance(o, list):
         return o.append(elem)
+    if isinstance(o, set):
+        return o.add(elem)
     raise NotImplementedError(
         f"Unsupported resource type {type(o)}. Unable to access elem {elem}"
-    )
+    )  # TODO: Fiks feilhåndtering slik at klienten (også) får feilmeldingene.
+
+
+def db_slice(subscript, o):
+
+    return o[subscript]
 
 
 def get(key_or_index: str, o):
@@ -149,7 +185,7 @@ def key_startswith(string: str, o) -> List[Tuple[str, Any]]:
     return list(_fn())
 
 
-def get_resource(o):
+def get_all(o):
     return o
 
 
