@@ -15,8 +15,23 @@ pip install edb
 ```python
 from edb import Resource
 
-test = Resource("test").create(dict()) #  Create a "test" dict resource 
-test.add(("key_to_add", "vaule_to_add"))
+
+users = Resource("users").create(list())
+
+
+for i in range(3):
+    user = {
+        "id": i,
+        "name": 'Trolol Guy',
+    }
+    users.add(user)
+
+print(len(users))
+
+print(users[1])
+
+print(Resource("test").list())
+
 
 
 ```
@@ -24,18 +39,21 @@ test.add(("key_to_add", "vaule_to_add"))
 ##### FastAPI
 
 ```python
+
+# Not finished
 class BackgroundRunner:
     def __init__(self):
         self.value = 0
 
     async def run_main(self):
         while True:
-            await asyncio.sleep(0.1)
-            self.value += 1
+            self.value = 1
 
 runner = BackgroundRunner()
 
 @app.on_event('startup')
 async def app_startup():
-    asyncio.create_task(runner.run_main())
+    asyncio.create_task(edb.run())
+# /Not finished
+
 ```
