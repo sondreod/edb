@@ -1,0 +1,46 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "edb"
+authors = [{name = "Sondre S. Ødegård"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development",
+    "Topic :: Database :: Database Engines/Servers"
+]
+dynamic = ["version", "description"]
+
+[project.urls]
+Source = "https://github.com/sondreod/edb"
+Documentation = "https://github.com/sondreod/edb"
+
+[project.scripts]
+edb = "edb:run"
+
+[dev-dependencies]
+black = {}
+pytest = {}
+pytest-cov = {}
+coverage = {}
+tox = {}
+flit = {}
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+envlist = py{38,39}
+
+[testenv]
+deps = 
+    pytest >= 3.0.0, <4
+    black
+commands =
+    black .
+    pytest
+"""
