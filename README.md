@@ -11,32 +11,12 @@ pip install edb
 
 ### Usage
 
-##### Generic
-```python
-from edb import Resource
+#### Generic
 
 
-users = Resource("users").create(list())
+See `examples.py`
 
-
-for i in range(3):
-    user = {
-        "id": i,
-        "name": 'Trolol Guy',
-    }
-    users.add(user)
-
-print(len(users))
-
-print(users[1])
-
-print(Resource("test").list())
-
-
-
-```
-
-##### FastAPI
+#### FastAPI
 
 ```python
 
