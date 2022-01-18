@@ -6,15 +6,17 @@ Have cake, and eat it too.
 """
 __version__ = "0.1-a1"
 
+from pathlib import Path
 import pickle
 import socket
 import asyncio
-from typing import Any, Callable, Dict, Union, Tuple, List
-from os import environ
 import logging
+from os import environ
+from typing import Any, Callable, Dict, Union, Tuple, List
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('EDB')
+log = logging.getLogger("EDB")
+
 
 class Resource:
     def __init__(self, resource: str) -> None:
@@ -29,6 +31,7 @@ class Resource:
         query(self.resource, "delete_resource")
 
     def NOT_IMPLEMENTED__getattribute__(self, *args, **kwargs) -> Any:
+        """TODO: Send the calls dynamicaly, remove the functions below (except register)"""
         return query(self.resource, "__getattribute__", *args, **kwargs)
 
     def __repr__(self, *args, **kwargs):
@@ -45,6 +48,12 @@ class Resource:
 
     def __getitem__(self, *args, **kwargs):
         return query(self.resource, "__getitem__", *args, **kwargs)
+
+    def add(self, *args, **kwargs):
+        return query(self.resource, "add", *args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        return query(self.resource, "get", *args, **kwargs)
 
     def append(self, *args, **kwargs):
         return query(self.resource, "append", *args, **kwargs)
@@ -63,8 +72,8 @@ class Resource:
 
 
 def query(resource, func, *args, **kwargs):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-        client.connect(("localhost", environ.get("EDB_PORT", 54200)))
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.connect("/tmp/edb.socket")
 
         data = pickle.dumps((resource, func, args, kwargs))
         client.send(data)
@@ -90,7 +99,7 @@ class EdbServer(asyncio.Protocol):
     def data_received(self, data):
         resource, func, args, kwargs = pickle.loads(data)
         resource_type = type(self.store.get(resource))
-        #print(resource, resource_type, func, args, kwargs)
+        # print(resource, resource_type, func, args, kwargs)
 
         if func == "create_resource":
             if not self.store.get(resource):
@@ -111,7 +120,6 @@ class EdbServer(asyncio.Protocol):
 
         self.transport.write(response)
 
-        # client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         # Keep socket open, yield data when using generators.
         self.transport.close()
 
@@ -152,20 +160,20 @@ async def main():
         periodic(store)
     )  # Use for healthchecks, cleanups and cache updates, persist db to file?
 
-    server = await loop.create_server(
-        lambda: EdbServer(store, register), "127.0.0.1", environ.get("EDB_PORT")
+    socket_filename = "/tmp/edb.socket"
+    if Path(socket_filename).is_file():
+        Path(socket_filename).unlink()
+
+    server = await loop.create_unix_server(
+        lambda: EdbServer(store, register), socket_filename
     )
-    log.warning(
-        f"Started on port {environ.get('EDB_PORT')}"
-    )
+    log.warning(f"Started")
 
     async with server:
         await server.serve_forever()
 
 
-def run(port=54200):
-    if not environ.get("EDB_PORT"):
-        environ["EDB_PORT"] = str(port)
+def run():
     asyncio.run(main())
 
 
